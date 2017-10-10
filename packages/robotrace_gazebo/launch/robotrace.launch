@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Load Robot Description to ROS parameters server -->
+  <param name="robot_description"
+         command="$(find xacro)/xacro $(find jackal_description)/urdf/jackal.urdf.xacro
+                    --inorder" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+  <!-- Launch the Gazebo simulator -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find robotrace_gazebo)/worlds/robotrace.world"/>
+    <arg name="verbose" value="true"/>
+  </include>
+
+  <!-- Spawn the Robot in the simulation -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+	      args="-urdf -model jackal -param robot_description -x 0 -y -1.75 -z 0.2 -Y 3.14" />
+
+  <!-- Joystick driver -->
+  <node name="joy" pkg="joy" type="joy_node" output="screen">
+    <param name="deadzone" value="0.2"/>
+  </node>
+
+  <!-- Teleop joy -->
+  <node name="teleop_twist_joy" pkg="teleop_twist_joy" type="teleop_node" output="screen">
+    <param name="scale_linear" value="2.0"/>
+    <param name="scale_angular" value="2.0"/>
+  </node>
+</launch>
