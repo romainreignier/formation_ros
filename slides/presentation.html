@@ -1497,7 +1497,7 @@ if(moments.m00 != 0.0)
   // Publish the error
   std_msgs::Float64 errorMsg;
   errorMsg.data = err;
-  m_errorPub.publish(errorMsg);
+  m_trackErrorPub.publish(errorMsg);
 }
 ```
 ]
