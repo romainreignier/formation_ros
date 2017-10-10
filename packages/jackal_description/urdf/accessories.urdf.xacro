@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find jackal_description)/urdf/accessories/sick_tim.urdf.xacro"/>
+  <sick_tim551 name="laser" ros_topic="/scan"/>
+  <joint name="front_mount" type="fixed">
+      <origin xyz="0.11 0 -0.075" rpy="${radians(180)} 0 0"/>
+    <parent link="front_mount"/>
+    <child link="laser_mount_link"/>
+  </joint>
+
+  <xacro:include filename="$(find jackal_description)/urdf/accessories/camera_mount.urdf.xacro"/>
+  <camera_mount prefix="front">
+    <origin xyz="0.07 0 0"/>
+  </camera_mount>
+
+  <xacro:include filename="$(find jackal_description)/urdf/accessories/pointgrey_flea3.urdf.xacro"/>
+  <pointgrey_flea3 frame="front_camera" name="front_camera"
+    camera_x="0.07" camera_y="0.02" camera_z="0.02" 
+    camera_mass="0.085" hfov="${radians(170))" fps="20" width="640" height="480" near="0.02"/>
+  <joint name="front_camera_bracket_joint" type="fixed">
+    <origin xyz="0.10 0 0.10" rpy="0 ${radians(20)} 0"/>
+    <parent link="front_mount"/>
+    <child link="front_camera"/>
+  </joint>
+
+</robot>

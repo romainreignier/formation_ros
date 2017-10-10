@@ -1,0 +1,5 @@
+*.user*
+build/
+devel/
+dev_ws/
+catkin_ws/
