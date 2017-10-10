@@ -541,7 +541,7 @@ name: ''"
 
 Get the list of installed srv files with `rossrv list`
 
-Get the description of a src file with `rossrv info <srv_name>`
+Get the description of a src file with `rossrv show <srv_name>`
 
 [...]
 
@@ -730,7 +730,7 @@ $ touch turtle_controller.py
 Make the script executable:
 
 ```
-$ chmod +x turtle_controller.py
+$ chmod u+x turtle_controller.py
 ```
  
 ]
@@ -812,17 +812,17 @@ def turtle_controller():
 
 ```Python
 [...]
-import math
-from turtlesim.msg import Pose
+*import math
+*from turtlesim.msg import Pose
 
-def pose_callback(msg):
-    print('turtle in position: (x = %f, y = %f | theta = %f)'
-          % (msg.x, msg.y, math.degrees(msg.theta)))
+*def pose_callback(msg):
+*    print('turtle in position: (x = %f, y = %f | theta = %f)'
+*          % (msg.x, msg.y, math.degrees(msg.theta)))
 
-def turtle_controller():
-    rospy.init_node('turtle_controller')
-    sub = rospy.Subscriber('/turtle1/pose', Pose, pose_callback)
-    [...]
+ def turtle_controller():
+     rospy.init_node('turtle_controller')
+*    sub = rospy.Subscriber('/turtle1/pose', Pose, pose_callback)
+     [...]
 
 [...]
 ```
@@ -868,6 +868,638 @@ except rospy.ServiceException, e:
 Create a ROS node in Pyhton to spawn a second turtle that must follow a first turtle teleoperated.
 
 .center[![](images/turtle_follower.png)]
+]
+
+---
+
+.left-column[
+## Agenda
+]
+.right-column[
+### Second day
+
+1. Presentation of URDF
+2. Introduction to the Gazebo simulator
+3. Teleoperation of a robot in the 3D simulator
+4. Presentation of the robot race
+7. Presentation of OpenCV
+8. Writing a C++ node
+9. Writing a Python robot control node
+
+]
+
+---
+
+.left-column[
+## URDF
+### Presentation
+]
+.right-column[
+
+URDF for **Unified Robot Description Format**, based on XML
+
+```XML
+<robot name="my_robot">
+  <link name="base_link">
+    <visual>
+        <geometry>
+            <cylinder length="0.6" radius="0.2"/>
+        </geometry>
+    </visual>
+  </link>
+  <link name="arm_1">
+    <visual>
+        <origin xyz="-0.4 0 0"/>
+        <geometry>
+            <box size="0.8 0.1 0.2"/>
+        </geometry>
+    </visual>
+  </link>
+  <joint name="base_to_arm_1_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="arm_1"/>
+    <origin xyz="0 0.22 0.25"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="1000.0" lower="0" upper="3.14" velocity="0.5"/>
+  </joint>
+</robot>
+```
+]
+
+---
+
+.left-column[
+## URDF
+### Presentation
+]
+.right-column[
+
+The result:
+
+.center[![](images/simple_robot.png)]
+
+
+URDF can be extended with **xacro** that allows to write macros in XML files.
+
+(see <http://wiki.ros.org/xacro>)
+
+]
+
+---
+
+.left-column[
+## URDF
+### Presentation
+### Download
+]
+.right-column[
+
+.center[![](images/jackal.jpg)]
+
+Download the URDF file of the Jackal robot:
+
+```bash
+$ git clone https://github.com/romainreignier/formation_ros
+# or, if already cloned:
+$ cd formation_ros
+$ git pull
+```
+``` bash
+$ cp -r jackal_description ~/catkin_ws/src/
+```
+
+]
+
+---
+
+.left-column[
+## URDF
+### Presentation
+### Download
+### RViz
+]
+.right-column[
+
+.center[![](images/rviz.png)]
+
+
+RViz is a 3D **visualization** tool.
+
+It represents the state of the robot (joints positions, sensors, robot in a map, trajectories...).
+
+Launch RViz with the Jackal model:
+
+```
+$ cd ~/catkin_ws/src/jackal_description/urdf
+$ roslaunch urdf_tutorial display.launch model:=jackal.urdf.xacro
+```
+
+Use the sliders to move the wheels.
+
+]
+
+---
+
+.left-column[
+## Gazebo
+### Presentation
+]
+.right-column[
+
+.center[![](images/gazebo.png)]
+
+Gazebo is a 3D simulator for robots :
+
+- OpenGL based 3D visualization
+- Physics engine based on ODE
+- ROS interfaces to publish/subscribe topics
+- Ability to add plugins for sensors and actuators
+
+]
+
+---
+
+.left-column[
+## Gazebo
+### Presentation
+### Launch
+]
+.right-column[
+
+Launch Gazebo with ROS interfaces with:
+
+```
+$ roslaunch gazebo_ros empty_world.launch
+```
+
+Then try to add models to the world (*Insert* tab).
+
+.center[![](images/gazebo_models.png)]
+
+A world is defined in a SDF file that is a XML file (ground, sun, static models...).
+
+]
+
+---
+
+.left-column[
+## Gazebo
+### Presentation
+### Launch
+### Spawn a robot
+]
+.right-column[
+
+To spawn a robot in the world, write a launch file:
+
+```XML
+<launch>
+  <!-- Load Robot Description to ROS parameters server -->
+  <param name="robot_description"
+    command="$(find xacro)/xacro
+    $(find jackal_description)/urdf/jackal.urdf.xacro"/>
+  <!-- Publish the state of the joints -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher"
+        type="robot_state_publisher"/>
+  <!-- Launch the Gazebo simulator -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch"/>
+  <!-- Spawn the Robot in the simulation -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+        args="-urdf -model jackal -param robot_description -z 0.2"/>
+</launch>
+```
+
+Launch the file and have a look at the available topics and try to teleoperate the robot and visualize the robot and laser data in RViz (`rviz`).
+
+To get a correct visualization in RViz, clone the following repository in your workspace and build it:
+
+```bash
+$ git clone https://github.com/romainreignier/gazebo_ros_pkgs.git
+```
+
+]
+
+---
+
+.left-column[
+## Robot Race
+### Presentation
+]
+.right-column[
+The goal is to make the robot follow a race track autonomously based on computer vision.
+
+Objectives:
+
+- Start the robot with a service
+- Full autonomy during the race
+- Stop automatically after X laps
+
+.center[![](images/robot_race.png)]
+
+]
+
+---
+
+.left-column[
+## Robot Race
+### Presentation
+### Architecture
+]
+.right-column[
+
+.center[![](images/robot_race_dcs.png)]
+
+]
+
+
+---
+
+.left-column[
+## Robot Race
+### Presentation
+### Architecture
+### Get the world
+]
+.right-column[
+
+The world and the meshes are in the `robotrace_gazebo` package in the Github repository of the course.
+
+- Copy the `robotrace_gazebo` directory in `catkin_ws/src`
+- Build the workspace
+- Source the workspace
+- Launch the simulation with:
+
+```bash
+$ roslaunch robotrace_gazebo robotrace.launch
+```
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+]
+.right-column[
+
+.center[![](images/opencv.png)]
+
+Computer vision library
+
+- Open-source (BSD License)
+- Created in 2000 by Intel
+- Version 3.3
+- C++ API with Python bindings
+- Large community
+- Lots of modules (image, video, stereo vision, machine learning...)
+- Packaged with ROS, so already installed with `ros-kinetic-desktop-full`
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+### Makefile
+]
+.right-column[
+
+A Makefile allows to write commands for the compiler. But become complex when used with a lot of libraries.
+
+File `Makefile`:
+
+```make
+CC = g++
+CXXFLAGS = -I/usr/local/include/opencv -Wall -std=c++11
+LDFLAGS = -L/usr/local/lib -lopencv_core -lopencv_highgui \
+          -lopencv_imgproc -lopencv_imgcodecs
+EXEC = my_program
+SRC = my_source
+
+all: $(EXEC)
+
+$(EXEC): $(SRC).cpp
+		$(CC) $(CXXFLAGS) -o $(EXEC) $^ $(LDFLAGS)
+
+$(SRC).o: $(SRC).cpp
+		$(CC) $(CXXFLAGS) -c -o $@ $^
+
+clean:
+	rm -f $(SRC).o $(EXEC)
+```
+
+Build with:
+
+```bash
+$ make
+```
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+### Makefile
+### CMake
+]
+.right-column[
+.center[![](images/cmake.jpg)]
+
+CMake is a cross-platform tool that allows to generate:
+
+- **Makefiles**
+- CodeBlocks Projects
+- Eclipse CDT Projects
+- Visual Studio Projects
+- ...
+
+```cmake
+cmake_minimum_required(VERSION 3.1)
+project(my_project)
+# Add a new library
+find_package(OpenCV REQUIRED)
+# Specify the include directories
+include_directories(${OpenCV_INCLUDE_DIRS})
+# Add an executable with its source files
+add_executable(my_program my_source.cpp)
+# Link the target to some libraries
+target_link_libraries(my_program ${OpenCV_LIBRARIES})
+```
+
+```bash
+$ cmake . # Generate the Makefile
+$ make    # Call the Makefile
+```
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+### Makefile
+### CMake
+### Create a Pkg
+]
+.right-column[
+
+Create a Catkin package:
+
+```bash
+$ cd ~/catkin_ws/src
+$ catkin create pkg line_detector --catkin-deps roscpp sensor_msgs \
+  std_msgs cv_bridge image_transport
+$ cd line_detector
+$ nano CMakeLists.txt
+```
+
+Add the following lines:
+
+```cmake
+find_package(OpenCV REQUIRED)
+
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+add_executable(${PROJECT_NAME}_node
+  src/main.cpp
+  src/LineDetector.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}_node ${OpenCV_LIBRARIES})
+```
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+### Makefile
+### CMake
+### Create a Pkg
+]
+.right-column[
+
+Create the files `src/main.cpp`, `src/LineDetector.h` and `src/LineDetector.cpp`
+
+In `main.cpp`, add the following lines:
+
+```C++
+#include <ros/ros.h>
+
+int main(int argc, char** argv)
+{
+  // Init the ROS node
+  ros::init(argc, argv, "line_detector_node");
+  // Keep the node running
+  ros::spin();
+  return 0;
+}
+```
+
+Build the package:
+
+```bash
+$ catkin build
+```
+
+To ease the C++ development, you can install `qtcreator`.
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+### Makefile
+### CMake
+### Create a Pkg
+### Create a class
+]
+.right-column[
+In `src/LineDetector.h`:
+
+```C++
+#pragma once
+
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
+#include <std_msgs/Float64.h>
+
+class LineDetector
+{
+public:
+  LineDetector();
+
+private:
+  void imageCb(const sensor_msgs::ImageConstPtr& image);
+
+  ros::NodeHandle m_nh;
+  ros::Subscriber m_imageSub;
+  ros::Publisher m_trackErrorPub;
+
+  bool m_debug;
+  double m_binaryThreshold;
+};
+```
+
+Do not forget to instantiate the class in the `main.cpp`
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### OpenCV
+### Makefile
+### CMake
+### Create a Pkg
+### Create a class
+]
+.right-column[
+
+Constructor and callback
+
+In `src/LineDetector.cpp`:
+
+```C++
+#include "LineDetector.h"
+
+LineDetector::LineDetector() : m_nh{"~"}
+{
+  // Register the publisher
+  m_trackErrorPub =
+    m_nh.advertise<std_msgs::Float64>("/track_error", 1);
+  
+  // Register the subscriber
+  m_imageSub =
+    m_nh.subscribe("/front_camera/image_raw", 1,
+                   &LineDetector::imageCb, this);
+
+  // Parameters
+  m_debug = m_nh.param("debug", true);
+  m_binaryThreshold = m_nh.param("threshold", 170);
+  
+  // Notify the node is launched
+  ROS_INFO("line_detector node ready to receive images");
+}
+
+void LineDetector::imageCb(const sensor_msgs::ImageConstPtr& image)
+{}
+```
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### Makefile
+### CMake
+### Create a Pkg
+### Create a class
+### Receive an image
+]
+.right-column[
+```C++
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+
+#include <cv_bridge/cv_bridge.h>
+
+void LineDetector::imageCb(const sensor_msgs::ImageConstPtr& image)
+{
+  cv_bridge::CvImageConstPtr cvPtr;
+  try
+  {
+    cvPtr =
+      cv_bridge::toCvShare(image, sensor_msgs::image_encodings::BGR8);
+  }
+  catch(const cv_bridge::Exception& e)
+  {
+    ROS_ERROR_STREAM("Failed to get the image from the message: "
+                     << e.what());
+    return;
+  }
+
+  if(m_debug)
+  {
+    // Show received image
+    cv::imshow("Original image", cvPtr->image);
+    cv::waitKey(3);
+  }
+}
+```
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### CMake
+### Create a Pkg
+### Create a class
+### Receive an image
+### Algorithm
+]
+.right-column[
+
+Simple algorithm to get the center of the line from the image:
+
+.center[![](images/cv_algo.png)]
+
+]
+
+---
+
+.left-column[
+## C++ Node with OpenCV
+### CMake
+### Create a Pkg
+### Create a class
+### Receive an image
+### Algorithm
+]
+.right-column[
+
+```C++
+// Convert to grayscale
+cv::Mat imageGray;
+cv::cvtColor(cvPtr->image, imageGray, cv::COLOR_BGR2GRAY);
+
+// Binary threshold
+cv::Mat imageThresh;
+cv::threshold(imageGray, imageThresh, m_binaryThreshold, 255, 0);
+
+// Take only the bottom of the image to get the line
+const cv::Mat ROI{
+    imageThresh,
+    cv::Rect{0, 2 * imageThresh.rows / 3,
+             imageThresh.cols, imageThresh.rows / 3}};
+
+// Compute the moments to get the position of the line
+const cv::Moments moments = cv::moments(ROI);
+if(moments.m00 != 0.0)
+{
+  const double cx = moments.m10 / moments.m00;
+  const double cy = moments.m01 / moments.m00;
+  // Compute the error from the center
+  const double err = cx - (imageThresh.cols / 2.0);
+  // Publish the error
+  std_msgs::Float64 errorMsg;
+  errorMsg.data = err;
+  m_errorPub.publish(errorMsg);
+}
+```
 ]
 
 		</textarea>
