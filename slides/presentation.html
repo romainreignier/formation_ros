@@ -310,7 +310,6 @@ The messages exchanged are standardised:
 - **sensor_msgs** (`LaserScan`, `Range`, `Image`, `Joy`...)
 - **geometry_msgs** (`Point`, `Pose`, `Twist`...)
 - **nav_msgs** (`Path`, `Odometry`, `OccupancyGrid`...)
-- ...
 
 But it is also possible to define custom ones, defined in a `.msg` file:
 
@@ -1502,6 +1501,519 @@ if(moments.m00 != 0.0)
 ```
 ]
 
+---
+
+.left-column[
+## Agenda
+]
+.right-column[
+### Third day
+
+1. Introduction to TF
+2. Write a Python Module
+3. Write a custom message
+4. Write a Robot Manager node in Python
+5. Intro to Dynamic Reconfigure
+6. Race teleoperation versus AI
+7. Exam
+
+]
+
+---
+
+.left-column[
+## TF
+### Introduction
+]
+.right-column[
+
+.center[![](images/tf.png)]
+
+TF is a ROS package that allows to keep track of multiple coordinate frames over the time.
+
+The relationship between frames is stored in a tree structure.
+
+Lets the user transform points between any frames at a desired point in time.
+
+]
+
+---
+
+.left-column[
+## TF
+### Introduction
+### TF tools
+]
+.right-column[
+
+#### rqt_tf_tree
+
+RQT plugin to show the current TF tree
+
+```
+$ rosrun rqt_tf_tree rqt_tf_tree
+```
+
+.center[![](images/frames.png)]
+
+]
+
+---
+
+.left-column[
+## TF
+### Introduction
+### TF tools
+]
+.right-column[
+
+#### tf_echo
+
+Command-line utility to print the transform between two frames:
+
+```
+$ rosrun tf tf_echo /odom /base_link
+```
+
+Output:
+
+```
+At time 8.781
+- Translation: [-3.506, -1.694, 0.084]
+- Rotation: in Quaternion [0.000, -0.000, 1.000, 0.000]
+            in RPY (radian) [-0.000, -0.000, 3.141]
+            in RPY (degree) [-0.000, -0.000, 179.943]
+
+```
+
+#### view_frames
+
+Command-line tool to generate a PDF of the current TF treein the file `frames.pdf`
+
+```
+$ rosrun tf view_frames
+```
+
+]
+
+---
+
+.left-column[
+## TF
+### Introduction
+### TF tools
+### TF in Python
+]
+.right-column[
+
+Retrieve the transform between two frames in Python using `tf2_ros`:
+
+```Python
+import tf2_ros
+
+# instantiate a buffer to store the transform
+tf_buffer = tf2_ros.Buffer()
+# create a listener that takes a buffer as argument
+tf_listener = tf2_ros.TransformListener(tf_buffer)
+
+# get the transform, taking care of exceptions
+try:
+  trans = tf_buffer.lookup_transform('odom', 'base_link', rospy.Time())
+except (tf2_ros.LookupExcepion, tf2_ros.ConnectivityException, \
+        tf2_ros.ExtrapolationException):
+  print('Failed to get the transform')
+  return
+
+# compute the distance between the two frames
+distance = math.sqrt(trans.transform.translation.x ** 2, \
+                     trans.transform.translation.y ** 2)
+# compute the angle between the two frames
+angle = math.atan2(trans.transform.translation.y, \
+                   trans.transform.translation.x)
+```
+
+]
+
+---
+
+.left-column[
+## TF
+### Introduction
+### TF tools
+### TF in Python
+### Application
+]
+.right-column[
+
+#### Instructions
+
+Write a ROS node that listens to the TF and detects when the robot has crossed the finishing line.
+
+#### Tip
+
+To detect if two segments intersect, you can use the `sympy` Python module.red[*]:
+
+```Python
+import sympy.geometry as sg
+
+pt1 = sg.Point(0, 0)
+pt2 = sg.Point(0, 2)
+seg1 = sg.Segment(pt1, pt2)
+
+seg2 = sg.Segment(sg.point(-2, 1), sg.point(2, 1))
+
+if sg.intersection(seg1, seg2):
+    print("Segments 1 and 2 intersect")
+else:
+    print("There is no intersection")
+```
+
+.footnote[.red[*] Installed with `python-sympy`]
+]
+
+---
+
+.left-column[
+## Python Module
+### Why
+]
+.right-column[
+
+A Python Module is equivalent to a library in C++.
+
+It allows to re-use a piece of code in several nodes, even from other packages.
+
+To do so, the module needs to be exported in order to be imported in a Python script.
+
+On ROS, modules of a package are usually stored in `src/<package_name>/`.
+
+1. Create a directory with the name of the package in the package's `src` directory
+2. Create an empty `__init__.py` file in that folder
+3. Create a Python file with functions/classes in that directory
+4. In the `scripts` directory of the package, create a Python script and use the module with:
+
+    ```Python
+    import my_package.my_module_file
+
+    my_package.my_module_file.my_function()
+    ```
+
+5. Change the permissions of the script `chmod u+x my_script.py`
+
+]
+
+---
+
+.left-column[
+## Python Module
+### Why
+### How
+]
+.right-column[
+But it is not enough, we need to add the module to the `PYTHONPATH`.
+
+Catkin can do that for us with a little help:
+
+1. Create a file named `setup.py` in the root of your package with the following:
+
+    ```Python
+    from distutils.core import setup
+    from catkin_pkg.python_setup import generate_distutils_setup
+
+    setup_args = generate_distutils_setup(
+        packages=['my_package'],
+        package_dir={'': 'src'},
+    )
+
+    setup(**setup_args)
+    ```
+2. In the `CMakeLists.txt`, uncomment the line :
+    ```CMake
+    catkin_python_setup()
+    ```
+3. After building and sourcing your workspace, you should be able to use your module.
+
+]
+
+---
+
+.left-column[
+## Custom Message
+### Declaration
+]
+.right-column[
+
+To create a custom message, create a file `.msg` in the directory `msg` of a package.
+
+`msg/CurrentLap.msg`:
+
+```
+Header header
+
+uint8 current_lap
+```
+
+To create a custom service message, create a file `.srv` in the directory `srv` of a package.
+
+`srv/EnableRobotControl.srv` :
+
+```
+bool enable
+
+---
+
+```
+
+To build the messages and services of a package, modify `package.xml` to add:
+
+```XML
+<build_depend>message_generation</build_depend>
+<run_depend>message_runtime</run_depend>
+```
+
+]
+
+---
+
+.left-column[
+## Custom Message
+### Declaration
+### Build
+]
+.right-column[
+
+Modify `CMakeLists.txt` to add or uncomment the highlighted lines:
+
+```CMake
+find_package(catkin REQUIRED COMPONENTS
+   [...]
+*  std_msgs
+*  message_generation
+)
+[...]
+*add_message_files(
+*  FILES
+*  CurrentLap.msg
+*)
+
+*add_service_files(
+*  FILES
+*  EnableRobotControl.srv
+*)
+
+*generate_messages(
+*  DEPENDENCIES
+*  std_msgs
+*)
+[...]
+catkin_package(
+  [...]
+  CATKIN_DEPENDS `message_runtime` [...]
+)
+```
+
+]
+
+---
+
+.left-column[
+## Robot Manager
+### Goals
+]
+.right-column[
+
+The `robot_manager` is a Python ROS node that:
+
+- Provides a service to enable the robot to move
+- Detects when the robot crosses the finish line and count the laps
+- Stops the robot when it has done X laps
+- Read parameters to get the number of laps and the position of the finishing line
+
+.center[![](images/robot_manager.png)]
+
+]
+
+---
+
+.left-column[
+## Robot Manager
+### Goals
+### Code
+]
+.right-column[
+
+Everything has already been seen except providing a service and retrieve the time.
+
+#### Writing a Service Server in Python
+
+```Python
+import rospy
+from robot_manager.srv import *
+
+class RobotManager:
+
+    def __init__:
+        rospy.init_node('robot_manager')
+        service_server = rospy.Service('/enable_robot', \
+                                       EnableRobotControl, \
+                                       self.enable_service_callback)
+        self.enable_robot = false
+        rospy.spin()
+
+    def enable_service_callback(self, req):
+        self.enable_robot = req.enable
+        return EnableRobotControlResponse()
+
+```
+
+#### Get ROS Time in Python
+
+```Python
+current_time_in_secs = rospy.get_time()
+```
+
+]
+
+---
+
+.left-column[
+## Dynamic Reconfigure
+### Why
+]
+.right-column[
+
+Allows to modify node's parameters at runtime (without restarting the node)
+
+Useful to tune an algorithm (PID, Computer Vision...)
+
+Graphical User Interface with `rqt_reconfigure`:
+
+.center[![](images/rqt_reconfigure.png)]
+
+]
+
+---
+
+.left-column[
+## Dynamic Reconfigure
+### Why
+### Declaration
+]
+.right-column[
+
+In the package, create a `cfg` directory and add a `.cfg` file (ex. `cfg/RobotController.cfg`)
+
+```Python
+#!/usr/bin/env python2
+PACKAGE = "robot_controller"
+from dynamic_reconfigure.parameter_generator_catkin import *
+
+gen = ParameterGenerator()
+#            name           type   level  decription   default min max
+gen.add("linear_velocity", double_t, 0, "Linear Velocity",2.0, 0.0, 5)
+gen.add("kp", double_t, 0, "Kp", -0.006, -0.03, 0.03)
+
+exit(gen.generate(PACKAGE, PACKAGE, "RobotController"))
+```
+To build it, add the following to the `CMakeLists.txt`
+
+```CMake
+ find_package(catkin REQUIRED COMPONENTS
+   [...]
+*  dynamic_reconfigure
+ )
+
+*generate_dynamic_reconfigure_options(
+*  cfg/RobotController.cfg
+*)
+# if used for a C++ node
+*add_dependencies(my_node ${PROJECT_NAME}_gencfg)
+```
+
+]
+
+---
+
+.left-column[
+## Dynamic Reconfigure
+### Why
+### Declaration
+### In Python
+]
+.right-column[
+
+Declare a Dynamic Reconfigure server in Python:
+
+```Python
+import rospy
+from dynamic_reconfigure.server import Server
+from robot_controller.cfg import RobotControllerConfig
+
+class RobotController:
+    def __init__(self):
+        rospy.init_node("robot_controller")
+        srv = Server(RobotControllerConfig, self.dyn_param_callback)
+        self.kp = 1.0
+        self.linear_velocity = 2.0
+        rospy.spin()
+
+    def dyn_param_callback(self, config, level):
+        self.kp = config.kp
+        self.linear_velocity = config.linear_velocity
+        return config
+```
+
+]
+
+---
+
+.left-column[
+## Race Human vs AI
+]
+.right-column[
+
+Now that we know how to teleoperate the robot with a joystick and that we have programmed the robot to move autonomously, it's time to see which one is better!
+
+Modify the `launch` file to spawn a **second** robot with a **different name**, in a **different namespace** and **remap** the teleop topic:
+
+```XML
+<node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+      `ns="jackal_teleop"` args="-urdf -model `jackal_teleop`
+      -param `/`robot_description -x 0 -y `-2.20` -z 0.2 -Y 3.14" />
+
+<node name="teleop_node" pkg="teleop_twist_joy" type="teleop_node">
+*   <remap from="/cmd_vel" to="jackal_teleop/cmd_vel"/>
+</node>
+```
+
+.center[![](images/two_robots_race.png)]
+
+]
+
+
+---
+
+<!--
+.left-column[
+## Exam
+]
+.right-column[
+
+.center[![](images/referee.jpg)]
+
+Write a `referee` node in Python, in a **new package** that will:
+
+1. Call the service of the `robot_manager` node to start the race
+2. Measure the duration of a lap and print it in the ROS console with the level **WARN**
+3. Publish the current time of the current lap on the topic `/lap_time` with the type `std_msgs/Float64`
+4. Publish the time of the last lap on the topic `/last_lap` with a custom message that must contain:
+    - A header with the time at which the message was sent
+    - The number of the last finished lap
+    - The duration of the last finished lap
+5. Provide a service with a custom `srv` to give the list of the *X* best laps ordered by time (from the best to the worst), *X* must be provided by the service request
+
+]
+-->
 		</textarea>
 		<script>require=(function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({"components/printing":[function(require,module,exports){
 module.exports=require('yoGRCZ');
