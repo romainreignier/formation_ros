@@ -1753,7 +1753,7 @@ Header header
 uint8 current_lap
 ```
 
-To create a custom service message, create a file `.srv` in the directory `srv` of a package.
+To create a custom service message, create a `srv` directory in your package and add a file `.srv` inside it.
 
 `srv/EnableRobotControl.srv` :
 
@@ -1768,7 +1768,7 @@ To build the messages and services of a package, modify `package.xml` to add:
 
 ```XML
 <build_depend>message_generation</build_depend>
-<run_depend>message_runtime</run_depend>
+<exec_depend>message_runtime</exec_depend>
 ```
 
 ]
@@ -1854,7 +1854,7 @@ class RobotManager:
 
     def __init__:
         rospy.init_node('robot_manager')
-        service_server = rospy.Service('/enable_robot', \
+        self.service_server = rospy.Service('/enable_robot', \
                                        EnableRobotControl, \
                                        self.enable_service_callback)
         self.enable_robot = false
@@ -2014,6 +2014,7 @@ Write a `referee` node in Python, in a **new package** that will:
 
 ]
 -->
+
 		</textarea>
 		<script>require=(function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({"components/printing":[function(require,module,exports){
 module.exports=require('yoGRCZ');
