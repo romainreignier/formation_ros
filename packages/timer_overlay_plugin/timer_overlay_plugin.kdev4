@@ -1,0 +1,3 @@
+[Project]
+Manager=KDevCMakeManager
+Name=timer_overlay_plugin
